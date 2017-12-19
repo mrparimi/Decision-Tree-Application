@@ -1,0 +1,209 @@
+---
+title: "Decision Tree Appliction"
+author: "Mastan Rao Parimi"
+runtime: shiny
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(zoo)
+library(tree)
+```
+
+sidebar{.sidebar}
+==============================
+
+
+```{r}
+fileInput(inputId = "data_meta",label = "please upload csv file")
+uiOutput("drop_column")#Used to display UIdropdown all columns after uploading
+```
+
+EDA
+=========================================================================================================
+row
+-------------------------
+### output
+
+```{r}
+tableOutput("data_preview")
+```
+
+```{r}
+observe({ if(is.null(input$data_meta))return(NULL)
+  data = read.csv(input$data_meta$datapath)
+          output$data_preview = renderTable(head(data))
+          nums <- sapply(data, is.numeric)
+          output$numericcolumns=renderTable(names(data)[nums])
+          nums <- sapply(data, is.numeric)
+          output$nonnumericcolumns=renderTable(names(data)[-nums])
+          output$nrows = renderText(nrow(data))
+          output$ncols = renderText(length(data))
+          output$columns = renderTable(names(data))
+          output$drop_column = renderUI({selectInput(inputId = "select_column",label = "select a column",choices = names(data))})
+          output$dropdown_numerics = renderUI({selectInput(inputId = "select_numeric",label = "select_a_column",choices = names(data)[nums],multiple = TRUE, selected = names(data)[nums][1] )})
+          output$dropdown_catagorical = renderUI({selectInput(inputId = "select_caterogical",label = "select a column",choices = names(data)[-nums])})
+          
+          output$scaterplot = renderPlot({ggplot(data,aes_string(x=input$select_numeric[1],y=input$select_numeric[2],col=input$select_column))+geom_point()+geom_smooth()})
+          output$boxplot=renderPlot({boxplot(data[,input$select_numeric])})
+          output$histogram = renderPlot({hist(data[,input$select_numeric] )})
+          
+          output$freq_category = renderPlot({
+        items_freq = data%>%group_by_(input$select_caterogical)%>%summarise(count_item=n())%>%arrange(-count_item)%>%head(5)
+        ggplot(items_freq,aes_string(x=input$select_caterogical,y='count_item',fill =input$select_caterogical ))+geom_bar(stat = 'identity')         })
+          
+          numericcolumns =  names(data)[nums]
+           output$cluster_table =renderTable({
+   data_numeric=data[,numericcolumns]
+   fit=kmeans(na.omit(data_numeric),centers = input$n_cluster)
+   table(fit$cluster)})
+           output$cluster_slider = renderUI({sliderInput(inputId = "n_cluster",label = "choose no of cluster",min = 1,max = 15,value = 5)})
+          #decision tree 
+           output$decision_inputs = renderUI({selectInput(inputId = "dependent_variables",label = 'select input varibles', choices = names(data),multiple = TRUE)})
+             
+             output$decision_target = renderUI({selectInput(inputId = "dependent_variable",label = 'select output varible',choices = names(data))
+               })
+           
+             output$decision_tree = renderPlot({
+               target = input$dependent_variable 
+               inputs = paste(input$dependent_variables, collapse = '+')
+               fit_eqn = paste(target,'~',inputs)
+               fit = tree(fit_eqn, data = data)
+               plot(fit)
+               text(fit)
+             })
+          
+          })
+
+```
+
+rows
+------------------------------------
+### no of rows
+```{r}
+tableOutput("nrows")
+```
+
+### no of cloumns
+```{r}
+
+tableOutput("ncols")
+
+```
+
+### names of cloumns
+```{r}
+
+tableOutput("columns")
+```
+
+
+NUMERICAL COLUMNS 
+==================================================================================================
+
+row {data-height=300}
+---------------------------------------
+### dropdown
+
+```{r}
+uiOutput("dropdown_numerics")
+
+```
+
+### scaterplot
+```{r}
+plotOutput("scaterplot")
+
+```
+
+Row
+----------------------------------
+
+### Histogram
+
+```{r}
+plotOutput("histogram")
+
+```
+
+
+### Boxplot
+
+```{r}
+plotOutput("boxplot")
+
+```
+
+CATERGORICAL COLUMNS
+=======================================================================================
+
+
+row {data-height=400}
+-----------------------------------
+### catergorical columns 
+
+```{r}
+uiOutput("dropdown_catagorical")
+
+```
+
+
+
+row
+-----------------------------------
+
+### Frequency Distribution
+
+```{r}
+plotOutput("freq_category")
+```
+
+CLUSTERING
+============================================
+rows
+-----------------------
+### filters
+
+```{r}
+uiOutput("cluster_slider")
+```
+
+row
+-----------------------------------
+### knn
+```{r}
+tableOutput("cluster_table")
+```
+
+
+
+DECISION TREES
+========================================================
+rows
+---------------------------------------------
+### input varibale
+```{r}
+uiOutput("decision_inputs")
+```
+
+### target
+```{r}
+
+uiOutput("decision_target")
+```
+
+row
+---------------------------------
+### plot
+
+```{r}
+plotOutput("decision_tree")
+```
+
+
+
